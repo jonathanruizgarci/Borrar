@@ -1,0 +1,14 @@
+# Python dependencies for Raspberry Pi hardware
+
+# Supabase client
+supabase==2.0.0
+
+# GPIO library for Raspberry Pi
+RPi.GPIO==0.7.1
+
+# Sensor libraries (add specific ones based on your sensors)
+# adafruit-circuitpython-dht==3.7.0
+# adafruit-circuitpython-ads1x15==2.2.0
+
+# Utilities
+python-dotenv==1.0.0
