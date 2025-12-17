@@ -1,4 +1,4 @@
-# INAOE Xalitzintla
+# INAOE XALITZINTLA 
 
 Agriculture monitoring platform with integrated mobile app, web dashboard, and IoT hardware sensors.
 
