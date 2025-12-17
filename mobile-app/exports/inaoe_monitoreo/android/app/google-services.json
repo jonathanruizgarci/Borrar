@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1078944079121",
+    "project_id": "inaoe-monitoreo-pl7tbv",
+    "storage_bucket": "inaoe-monitoreo-pl7tbv.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1078944079121:android:c41d52ffd729dd3ad480b0",
+        "android_client_info": {
+          "package_name": "com.mycompany.inaoemonitoreo"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAJ_VCbPJl9N1aM9H6FsUawujF5eIHbWJU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
