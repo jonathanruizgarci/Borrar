@@ -3,19 +3,14 @@ import { BarChart2, HardDrive, Settings, Menu, Sun, Moon, LogOut } from 'lucide-
 import { useTheme } from '../contexts/ThemeContext';
 import { Dialog, Transition } from '@headlessui/react';
 
-
+// Importación de Vistas
 import DashboardView from '../views/DashboardView';
 import SensorsView from '../views/SensorsView';
 import SystemView from '../views/SystemView';
 
 // Componentes de Notificación
-import NotificationContainer from './NotificationContainer';
-import NotificationPopover from './NotificationPopover';
-
-// --- IMPORTAR AMBOS LOGOS ---
-// Asegúrate de tener 'logo_laing_dark.png' en tu carpeta de assets
-import logoLight from '../assets/images/logo_laing.png';
-import logoDark from '../assets/images/logo_laing_dark.png';
+import NotificationContainer from '../components/NotificationContainer'; // Ajusta la ruta si es necesario
+import NotificationPopover from '../components/NotificationPopover';   // Ajusta la ruta si es necesario
 
 const LaingMonitoringSystem = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -58,17 +53,9 @@ const LaingMonitoringSystem = () => {
   const SidebarContent = ({ isMobile = false }) => (
     <div className="flex flex-col h-full bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 transition-colors duration-300">
       <div className="flex items-center justify-center h-20 border-b border-gray-200 dark:border-gray-700 flex-shrink-0 px-4">
-        
-        {/* --- AQUÍ ESTÁ LA MAGIA DEL LOGO --- */}
-        <img 
-          src={isDarkMode ? logoDark : logoLight} // Cambia según el modo
-          alt="LAING" 
-          className="h-10 object-contain" 
-          // Si no encuentra el logo oscuro, muestra el texto como respaldo
-          onError={(e) => {e.target.style.display='none'; e.target.nextSibling.style.display='block'}} 
-        />
-        <span className="hidden text-xl font-bold text-blue-900 dark:text-blue-400 tracking-wider">LAING-IO</span>
-      
+        <span className="text-xl font-bold text-blue-900 dark:text-blue-400 tracking-wider">
+          Inaoe
+        </span>
       </div>
 
       <nav className="flex-1 py-6">
@@ -90,6 +77,7 @@ const LaingMonitoringSystem = () => {
   return (
     <div className={`h-screen flex bg-gray-50 dark:bg-gray-950 overflow-hidden transition-colors duration-300`}>
       
+      {/* Contenedor de Notificaciones (Toasts) */}
       <NotificationContainer />
 
       {/* --- Mobile Sidebar --- */}
@@ -124,8 +112,12 @@ const LaingMonitoringSystem = () => {
             <button type="button" className="p-2 text-gray-500 dark:text-gray-400" onClick={() => setSidebarOpen(true)}>
               <Menu size={28} />
             </button>
-            {/* Logo en Header Móvil también */}
-            <img src={isDarkMode ? logoDark : logoLight} alt="LAING" className="h-8 object-contain" />
+            
+            {/* Logo en Texto (Reemplazado para evitar error de imagen) */}
+            <span className="text-lg font-bold text-blue-900 dark:text-blue-400 tracking-wider">
+                Inaoe
+            </span>
+
             <div className="flex items-center gap-3">
                  <button onClick={toggleTheme} className="p-2 rounded-full text-gray-500 dark:text-gray-400">
                     {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
