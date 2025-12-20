@@ -83,6 +83,17 @@ const DashboardView = () => {
   const [loading, setLoading] = useState(true);
   const [isSimulating, setIsSimulating] = useState(false);
 
+  // Definición de métricas para UI
+  const BASIC_METRICS = ['temperature', 'humidity', 'soil_moisture', 'ph', 'solar_radiation'];
+  const EXTENDED_METRICS = [
+    'nitrogen', 'potassium', 'phosphorus', 'conductivity', 'soil_temperature',
+    'pm10', 'pm25', 'noise', 'rainfall', 'wind_speed'
+  ];
+
+  const AVAILABLE_METRICS = timeRange === 'month' || showDetail
+    ? [...BASIC_METRICS, ...EXTENDED_METRICS]
+    : BASIC_METRICS;
+
   const lastAnalyzedIdRef = useRef(null);
   const { addNotification, deleteNotification } = useNotification();
 
@@ -104,51 +115,77 @@ const DashboardView = () => {
     if (isSimulating) {
       const insertFakeData = async () => {
         try {
-          // Generar datos para 5 sensores simulados
-          const sensors = [
-            { id: 'sim-1', serial_number: 'SENSOR-001' },
-            { id: 'sim-2', serial_number: 'SENSOR-002' },
-            { id: 'sim-3', serial_number: 'SENSOR-003' },
-            { id: 'sim-4', serial_number: 'SENSOR-004' },
-            { id: 'sim-5', serial_number: 'SENSOR-005' },
-          ];
+          // Obtener sensores reales con su categoría (JOIN sensors + sensor_types)
+          const { data: realSensors, error: sensorsError } = await supabase
+            .from('sensors')
+            .select(`
+              id,
+              serial_number,
+              sensor_types!inner(category)
+            `);
 
-          const payloads = sensors.map(sensor => ({
-            sensor_id: sensor.id,
-            sensor_serial_number: sensor.serial_number,
-            timestamp: new Date().toISOString(),
-            raspberry_pi_id: 'CLIENT-SIMULATOR',
-            quality_score: 100,
-            data: {
-              temperature: parseFloat((Math.random() * (30 - 15) + 15).toFixed(1)), // 15-30°C
-              humidity: parseFloat((Math.random() * (80 - 40) + 40).toFixed(1)),
-              soil_humidity: parseFloat((Math.random() * (90 - 20) + 20).toFixed(1)),
-              soil_moisture: parseFloat((Math.random() * (90 - 20) + 20).toFixed(1)),
-              ph: parseFloat((Math.random() * (8 - 5) + 5).toFixed(2)),
-              solar_radiation: parseFloat((Math.random() * 1000).toFixed(0)),
-              // Nuevos datos simulados
-              nitrogen: parseFloat((Math.random() * 200).toFixed(0)),
-              potassium: parseFloat((Math.random() * 200).toFixed(0)),
-              phosphorus: parseFloat((Math.random() * 200).toFixed(0)),
-              conductivity: parseFloat((Math.random() * 2000).toFixed(0)),
-              soil_temperature: parseFloat((Math.random() * (25 - 10) + 10).toFixed(1)),
-              pm10: parseFloat((Math.random() * 50).toFixed(1)),
-              pm25: parseFloat((Math.random() * 30).toFixed(1)),
-              noise: parseFloat((Math.random() * 90).toFixed(1)),
-              rainfall: Math.random() > 0.8 ? parseFloat((Math.random() * 10).toFixed(1)) : 0,
-              wind_speed: parseFloat((Math.random() * 20).toFixed(1))
+          if (sensorsError || !realSensors || realSensors.length === 0) {
+            console.error("❌ No se pudieron obtener sensores:", sensorsError?.message);
+            return;
+          }
+
+          // Generar datos para cada sensor según su categoría
+          const payloads = realSensors.map(sensor => {
+            const category = sensor.sensor_types?.category || 'unknown';
+            const baseData = {
+              sensor_id: sensor.id,
+              timestamp: new Date().toISOString(),
+              raspberry_pi_id: 'CLIENT-SIMULATOR',
+              quality_score: 100,
+              data: {}
+            };
+
+            // Generar datos según la categoría del sensor
+            if (category === 'soil') {
+              // Sensores de suelo
+              baseData.data = {
+                soil_temperature: parseFloat((Math.random() * (25 - 10) + 10).toFixed(1)),
+                soil_humidity: parseFloat((Math.random() * (90 - 20) + 20).toFixed(1)),
+                soil_moisture: parseFloat((Math.random() * (90 - 20) + 20).toFixed(1)),
+                ph: parseFloat((Math.random() * (8 - 5) + 5).toFixed(2)),
+                conductivity: parseFloat((Math.random() * 2000).toFixed(0)),
+                nitrogen: parseFloat((Math.random() * 200).toFixed(0)),
+                potassium: parseFloat((Math.random() * 200).toFixed(0)),
+                phosphorus: parseFloat((Math.random() * 200).toFixed(0))
+              };
+            } else if (category === 'meteorological') {
+              // Sensores meteorológicos
+              baseData.data = {
+                temperature: parseFloat((Math.random() * (30 - 15) + 15).toFixed(1)),
+                humidity: parseFloat((Math.random() * (80 - 40) + 40).toFixed(1)),
+                atmospheric_pressure: parseFloat((Math.random() * (1030 - 990) + 990).toFixed(1)),
+                wind_speed: parseFloat((Math.random() * 20).toFixed(1)),
+                wind_direction: parseFloat((Math.random() * 360).toFixed(0)),
+                rainfall: Math.random() > 0.8 ? parseFloat((Math.random() * 10).toFixed(1)) : 0,
+                noise: parseFloat((Math.random() * 90).toFixed(1)),
+                pm10: parseFloat((Math.random() * 50).toFixed(1)),
+                pm25: parseFloat((Math.random() * 30).toFixed(1))
+              };
+            } else if (category === 'solar') {
+              // Sensores solares
+              baseData.data = {
+                solar_radiation: parseFloat((Math.random() * 1000).toFixed(0))
+              };
             }
-          }));
+
+            return baseData;
+          });
 
           const { error } = await supabase.from('sensor_readings').insert(payloads);
           if (error) console.error("❌ Error insertando:", error.message);
+          else console.log(`✅ Insertados ${payloads.length} registros de sensores reales`);
 
         } catch (err) { console.error(err); }
       };
 
       insertFakeData();
       intervalId = setInterval(insertFakeData, 5000); // 5 segundos
-      addNotification({ id: 'sim-start', type: 'info', title: 'Simulación Multi-Sensor', message: 'Generando datos extendidos...' });
+      addNotification({ id: 'sim-start', type: 'info', title: 'Simulación Multi-Sensor', message: 'Generando datos de sensores reales...' });
     } else {
       deleteNotification('sim-start');
     }
@@ -188,107 +225,115 @@ const DashboardView = () => {
     let to = new Date();
 
     if (timeRange === 'custom') { // Diario
-      from = new Date(selectedDate); from.setHours(0, 0, 0, 0);
-      to = new Date(selectedDate); to.setHours(23, 59, 59, 999);
+      from = new Date(selectedDate);
+      from.setHours(0, 0, 0, 0);
+      // Buffer de 6 horas para compensar desfases de zona horaria (UTC vs Local)
+      from.setHours(from.getHours() - 6);
+
+      to = new Date(selectedDate);
+      to.setHours(23, 59, 59, 999);
+      to.setHours(to.getHours() + 6);
     } else if (timeRange === 'month') { // Mensual
       from = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
       to = new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0);
       to.setHours(23, 59, 59, 999);
     }
 
-    // Fetch sensor types separately to avoid join issues
-    const { data: sensorTypes, error: sensorTypesError } = await supabase
-      .from('sensor_types')
-      .select('id, category');
+    // Obtener mapeo de sensor_id -> category (JOIN sensors + sensor_types)
+    try {
+      const { data: sensors, error: sensorsError } = await supabase
+        .from('sensors')
+        .select(`
+          id,
+          serial_number,
+          sensor_types (category)
+        `);
 
-    // Create category maps (by ID and by serial number for flexibility)
-    const sensorCategoryMapById = {};
-    const sensorCategoryMapBySerial = {};
-
-    if (!sensorTypesError && sensorTypes) {
-      sensorTypes.forEach(st => {
-        sensorCategoryMapById[st.id] = st.category;
-      });
-    }
-
-    // Fetch sensor readings
-    const { data: supabaseData, error } = await supabase
-      .from('sensor_readings')
-      .select('id, timestamp, data, sensor_serial_number, sensor_id')
-      .gte('timestamp', from.toISOString())
-      .lte('timestamp', to.toISOString())
-      .order('timestamp', { ascending: true });
-
-    if (!error) {
-      const rawData = supabaseData.map(d => {
-        const sensorJson = d.data || {};
-
-        // Try to get category from map, or assign default for simulated sensors
-        let category = sensorCategoryMapById[d.sensor_id] || 'unknown';
-
-        // For simulated sensors, assign categories based on ID pattern
-        if (category === 'unknown' && d.sensor_id) {
-          if (d.sensor_id.includes('sim-1') || d.sensor_id.includes('SENSOR-001')) {
-            category = 'soil';
-          } else if (d.sensor_id.includes('sim-2') || d.sensor_id.includes('SENSOR-002')) {
-            category = 'meteorological';
-          } else if (d.sensor_id.includes('sim-3') || d.sensor_id.includes('SENSOR-003')) {
-            category = 'solar';
-          } else if (d.sensor_id.includes('sim-4') || d.sensor_id.includes('SENSOR-004')) {
-            category = 'soil';
-          } else if (d.sensor_id.includes('sim-5') || d.sensor_id.includes('SENSOR-005')) {
-            category = 'meteorological';
-          }
-        }
-
-        // Fallback: detect category from sensor_serial_number pattern
-        const serialNum = d.sensor_serial_number || '';
-        if (category === 'unknown' && serialNum) {
-          if (serialNum.startsWith('SOI') || serialNum.includes('SOIL')) {
-            category = 'soil';
-          } else if (serialNum.startsWith('MET') || serialNum.includes('METEO')) {
-            category = 'meteorological';
-          } else if (serialNum.startsWith('SOL') || serialNum.includes('SOLAR')) {
-            category = 'solar';
-          }
-        }
-
-        return {
-          id: d.id,
-          timestamp: d.timestamp,
-          sensor_id: d.sensor_serial_number || d.sensor_id || 'unknown',
-          sensor_category: category,
-          temperature: sensorJson.temperature ?? sensorJson.soil_temperature, // Fallback original
-          humidity: sensorJson.humidity,
-          soil_moisture: sensorJson.soil_humidity ?? sensorJson.soil_moisture,
-          solar_radiation: sensorJson.solar_radiation,
-          ph: sensorJson.ph,
-          // Nuevas métricas
-          nitrogen: sensorJson.nitrogen,
-          potassium: sensorJson.potassium,
-          phosphorus: sensorJson.phosphorus,
-          conductivity: sensorJson.conductivity,
-          soil_temperature: sensorJson.soil_temperature, // Explicit override
-          pm10: sensorJson.pm10,
-          pm25: sensorJson.pm25 ?? sensorJson.pm2_5,
-          noise: sensorJson.noise,
-          rainfall: sensorJson.rainfall ?? sensorJson.rain,
-          wind_speed: sensorJson.wind_speed,
-        };
-      });
-
-      // Procesar datos (Resumidos, Detallados, o Agrupados)
-      const chartReadyData = processDataByRange(rawData, timeRange, showDetail, isGrouped);
-      setData(chartReadyData);
-      setLoading(false);
-
-      const isHistory = (timeRange === 'custom' || timeRange === 'month') && selectedDate.toDateString() !== new Date().toDateString();
-      if (rawData.length > 0 && !isHistory) {
-        analyzeCropHealth(rawData[rawData.length - 1]);
+      const sensorCategoryMap = {};
+      if (sensorsError) {
+        console.error('❌ Error fetching sensors mapping:', sensorsError.message);
+      } else if (sensors) {
+        sensors.forEach(s => {
+          sensorCategoryMap[s.id] = {
+            category: s.sensor_types?.category || 'unknown',
+            serial_number: s.serial_number
+          };
+        });
       }
+
+      console.log('🗺️ Active Sensor Mapping:', sensorCategoryMap);
+
+      // Fetch sensor readings
+      console.log(`🔍 Searching readings: GTE ${from.toISOString()} AND LTE ${to.toISOString()}`);
+
+      const { data: supabaseData, error } = await supabase
+        .from('sensor_readings')
+        .select('id, timestamp, data, sensor_id')
+        .gte('timestamp', from.toISOString())
+        .lte('timestamp', to.toISOString())
+        .order('timestamp', { ascending: true });
+
+      if (error) {
+        console.error('❌ Supabase Fetch Error:', error.message);
+        setLoading(false);
+        return;
+      }
+
+      console.log(`📊 Supabase Response: Found ${supabaseData?.length || 0} rows`);
+
+      if (supabaseData) {
+        const rawData = supabaseData.map(d => {
+          const sensorJson = d.data || {};
+          const sensorInfo = sensorCategoryMap[d.sensor_id] || {};
+
+          let category = sensorInfo.category || 'unknown';
+          const serialNum = sensorInfo.serial_number || d.sensor_id;
+
+          // Fallback detection logic
+          if (category === 'unknown') {
+            if (serialNum.startsWith('SOI') || serialNum.includes('SOIL')) category = 'soil';
+            else if (serialNum.startsWith('MET') || serialNum.includes('METEO')) category = 'meteorological';
+            else if (serialNum.startsWith('SOL') || serialNum.includes('SOLAR')) category = 'solar';
+          }
+
+          return {
+            id: d.id,
+            timestamp: d.timestamp,
+            sensor_id: serialNum,
+            sensor_category: category,
+            temperature: sensorJson.temperature ?? sensorJson.soil_temperature,
+            humidity: sensorJson.humidity,
+            soil_moisture: sensorJson.soil_humidity ?? sensorJson.soil_moisture,
+            solar_radiation: sensorJson.solar_radiation,
+            ph: sensorJson.ph,
+            nitrogen: sensorJson.nitrogen,
+            potassium: sensorJson.potassium,
+            phosphorus: sensorJson.phosphorus,
+            conductivity: sensorJson.conductivity,
+            soil_temperature: sensorJson.soil_temperature,
+            pm10: sensorJson.pm10,
+            pm25: sensorJson.pm25 ?? sensorJson.pm2_5,
+            noise: sensorJson.noise,
+            rainfall: sensorJson.rainfall ?? sensorJson.rain,
+            wind_speed: sensorJson.wind_speed,
+          };
+        });
+
+        if (rawData.length > 0) {
+          console.log('📈 First data point mapped:', rawData[0]);
+        }
+
+        const chartReadyData = processDataByRange(rawData, timeRange, showDetail, isGrouped);
+        console.log('✅ Final UI-ready data points:', chartReadyData.length);
+
+        setData(chartReadyData);
+      }
+    } catch (err) {
+      console.error('❌ Unexpected Error in fetchData:', err);
+    } finally {
+      setLoading(false);
     }
   }, [timeRange, selectedDate, showDetail, isGrouped, addNotification, deleteNotification]);
-
   // --- REALTIME SUBSCRIPTION ---
   useEffect(() => {
     fetchData();
@@ -321,17 +366,7 @@ const DashboardView = () => {
     return null;
   };
 
-  // GENERAR LISTA DE MÉTRICAS VISIBLES
-  const BASIC_METRICS = ['temperature', 'humidity', 'soil_moisture', 'solar_radiation', 'ph'];
-  const EXTENDED_METRICS = [
-    'nitrogen', 'potassium', 'phosphorus', 'conductivity', 'soil_temperature',
-    'pm10', 'pm25', 'noise', 'rainfall', 'wind_speed'
-  ];
 
-  // Según requerimiento: Solo mostrar filtros extendidos en modo MENSUAL
-  const AVAILABLE_METRICS = timeRange === 'month'
-    ? [...BASIC_METRICS, ...EXTENDED_METRICS]
-    : BASIC_METRICS;
 
   return (
     <div className="space-y-8 pb-12 w-full max-w-[100vw] overflow-x-hidden">
